@@ -19,9 +19,10 @@ interface Room {
 
 interface RoomListProps {
   rooms: Room[];
+  unreadMap: Record<string, number>;
 }
 
-export function RoomList({ rooms }: RoomListProps) {
+export function RoomList({ rooms, unreadMap }: RoomListProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
 
@@ -101,6 +102,11 @@ export function RoomList({ rooms }: RoomListProps) {
                       {room.memberCount} {room.memberCount === 1 ? 'member' : 'members'}
                     </p>
                   </div>
+                  {unreadMap[room.id] && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                      {unreadMap[room.id]}
+                    </span>
+                  )}
                   {room.inviteCode && (
                     <button
                       onClick={(e) => copyInviteCode(room.inviteCode, e)}

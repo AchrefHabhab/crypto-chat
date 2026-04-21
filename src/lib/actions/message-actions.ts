@@ -6,6 +6,12 @@ import { db } from '@/lib/db';
 import { getUserId } from '@/lib/session';
 import type { ActionResult } from '@/types/action-result';
 
+interface ReactionData {
+  id: string;
+  emoji: string;
+  userId: string;
+}
+
 interface MessageWithSender {
   id: string;
   ciphertext: string;
@@ -19,6 +25,7 @@ interface MessageWithSender {
     name: string | null;
     image: string | null;
   };
+  reactions: ReactionData[];
 }
 
 export async function getMessages(
@@ -37,6 +44,7 @@ export async function getMessages(
       where: { roomId },
       include: {
         sender: { select: { id: true, name: true, image: true } },
+        reactions: { select: { id: true, emoji: true, userId: true } },
       },
       orderBy: { createdAt: 'asc' },
       take: 100,

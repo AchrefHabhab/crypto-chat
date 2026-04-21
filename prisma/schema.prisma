@@ -80,13 +80,14 @@ model Room {
 }
 
 model RoomMember {
-  id       String   @id @default(cuid())
-  userId   String
-  roomId   String
-  role     String   @default("member")
-  joinedAt DateTime @default(now())
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  roomId     String
+  role       String   @default("member")
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roomId])
   @@index([roomId])

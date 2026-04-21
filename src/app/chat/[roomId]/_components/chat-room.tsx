@@ -12,7 +12,15 @@ import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
 import { ChainInspector } from './chain-inspector';
 import { OnlineBadge } from './online-badge';
+import { RoomSettings } from './room-settings';
 import { useCrypto } from './hooks/use-crypto';
+import { markRoomAsRead } from '@/lib/actions/read-receipt-actions';
+
+interface Reaction {
+  id: string;
+  emoji: string;
+  userId: string;
+}
 
 interface Message {
   id: string;
@@ -27,11 +35,13 @@ interface Message {
     name: string | null;
     image: string | null;
   };
+  reactions: Reaction[];
 }
 
 interface ChatRoomProps {
   roomId: string;
   roomName: string;
+  inviteCode: string;
   memberCount: number;
   initialMessages: Message[];
   currentUserId: string;
@@ -54,6 +64,7 @@ function messagesReducer(state: Message[], action: MessageAction): Message[] {
 export function ChatRoom({
   roomId,
   roomName,
+  inviteCode,
   memberCount,
   initialMessages,
   currentUserId,
@@ -66,6 +77,7 @@ export function ChatRoom({
 
   useEffect(() => {
     joinRoom(roomId);
+    markRoomAsRead(roomId);
     return () => leaveRoom(roomId);
   }, [roomId, joinRoom, leaveRoom]);
 
@@ -113,6 +125,12 @@ export function ChatRoom({
         </div>
 
         <OnlineBadge />
+        <RoomSettings
+          roomId={roomId}
+          roomName={roomName}
+          inviteCode={inviteCode}
+          currentUserId={currentUserId}
+        />
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -132,6 +150,8 @@ export function ChatRoom({
               <ChatMessage
                 key={msg.id}
                 message={msg}
+                roomId={roomId}
+                currentUserId={currentUserId}
                 isOwn={msg.sender.id === currentUserId}
                 index={i}
               />

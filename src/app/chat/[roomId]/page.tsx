@@ -30,6 +30,7 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
     <ChatRoom
       roomId={room.id}
       roomName={room.name}
+      inviteCode={room.inviteCode ?? ''}
       memberCount={room._count.members}
       initialMessages={messages}
       currentUserId={session.user.id!}

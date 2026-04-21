@@ -8,6 +8,14 @@ import { Lock, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { cn, formatTimestamp } from '@/lib/utils';
 import { decryptMessage } from '@/lib/crypto/encrypt';
 
+import { MessageReactions } from './message-reactions';
+
+interface ReactionData {
+  id: string;
+  emoji: string;
+  userId: string;
+}
+
 interface MessageProps {
   message: {
     id: string;
@@ -21,7 +29,10 @@ interface MessageProps {
       name: string | null;
       image: string | null;
     };
+    reactions: ReactionData[];
   };
+  roomId: string;
+  currentUserId: string;
   isOwn: boolean;
   index: number;
 }
@@ -44,7 +55,7 @@ function decryptReducer(_state: DecryptState, action: DecryptAction): DecryptSta
   }
 }
 
-export function ChatMessage({ message, isOwn, index }: MessageProps) {
+export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: MessageProps) {
   const isEncrypted = message.iv !== 'plaintext';
 
   const [state, dispatch] = useReducer(decryptReducer, {
@@ -117,6 +128,12 @@ export function ChatMessage({ message, isOwn, index }: MessageProps) {
           {formatTimestamp(new Date(message.createdAt))}
         </div>
       </div>
+      <MessageReactions
+        messageId={message.id}
+        roomId={roomId}
+        reactions={message.reactions}
+        currentUserId={currentUserId}
+      />
     </motion.div>
   );
 }

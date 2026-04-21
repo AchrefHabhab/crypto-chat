@@ -20,6 +20,7 @@ interface MessageData {
     name: string | null;
     image: string | null;
   };
+  reactions: { id: string; emoji: string; userId: string }[];
 }
 
 interface ChatInputProps {
@@ -81,6 +82,7 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
           hash: encrypted.hash,
           createdAt: new Date(),
           sender: { id: currentUserId, name: null, image: null },
+          reactions: [],
         };
 
         onMessageSent(message);
