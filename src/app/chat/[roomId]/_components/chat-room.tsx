@@ -29,6 +29,9 @@ interface Message {
   signature: string;
   prevHash: string;
   hash: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileType: string | null;
   createdAt: Date;
   sender: {
     id: string;

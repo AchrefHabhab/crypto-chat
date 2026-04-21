@@ -3,7 +3,7 @@
 import { useEffect, useReducer } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Lock, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Lock, ShieldCheck, ShieldAlert, FileDown } from 'lucide-react';
 
 import { cn, formatTimestamp } from '@/lib/utils';
 import { decryptMessage } from '@/lib/crypto/encrypt';
@@ -23,6 +23,9 @@ interface MessageProps {
     iv: string;
     hash: string;
     prevHash: string;
+    fileUrl: string | null;
+    fileName: string | null;
+    fileType: string | null;
     createdAt: Date;
     sender: {
       id: string;
@@ -109,6 +112,33 @@ export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: Me
           <p className="mb-0.5 text-xs font-medium text-emerald-400">
             {message.sender.name ?? 'Anonymous'}
           </p>
+        )}
+        {message.fileUrl && message.fileType?.startsWith('image/') && (
+          <div className="mb-2 overflow-hidden rounded-lg">
+            <Image
+              src={message.fileUrl}
+              alt={message.fileName ?? 'Image'}
+              width={300}
+              height={200}
+              className="max-h-64 w-full object-cover"
+            />
+          </div>
+        )}
+        {message.fileUrl && !message.fileType?.startsWith('image/') && (
+          <a
+            href={message.fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'mb-2 flex items-center gap-2 rounded-lg border p-2 text-xs transition-colors',
+              isOwn
+                ? 'border-white/20 hover:bg-white/10'
+                : 'border-neutral-700 hover:bg-neutral-800'
+            )}
+          >
+            <FileDown className="size-4 shrink-0" />
+            <span className="truncate">{message.fileName ?? 'Download file'}</span>
+          </a>
         )}
         <p className="text-sm leading-relaxed">{state.text}</p>
         <div

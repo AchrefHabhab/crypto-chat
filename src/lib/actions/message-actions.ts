@@ -19,6 +19,9 @@ interface MessageWithSender {
   signature: string;
   prevHash: string;
   hash: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileType: string | null;
   createdAt: Date;
   sender: {
     id: string;
@@ -56,13 +59,20 @@ export async function getMessages(
   }
 }
 
+interface FileData {
+  url: string;
+  name: string;
+  type: string;
+}
+
 export async function sendMessage(
   roomId: string,
   ciphertext: string,
   iv: string,
   signature: string,
   prevHash: string,
-  hash: string
+  hash: string,
+  file?: FileData
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await getUserId();
@@ -82,6 +92,9 @@ export async function sendMessage(
         signature,
         prevHash,
         hash,
+        fileUrl: file?.url,
+        fileName: file?.name,
+        fileType: file?.type,
       },
     });
 

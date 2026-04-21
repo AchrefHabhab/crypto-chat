@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import Image from 'next/image';
+import { Send, Loader2, Paperclip, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { sendMessage } from '@/lib/actions/message-actions';
@@ -14,6 +15,9 @@ interface MessageData {
   signature: string;
   prevHash: string;
   hash: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileType: string | null;
   createdAt: Date;
   sender: {
     id: string;
@@ -21,6 +25,11 @@ interface MessageData {
     image: string | null;
   };
   reactions: { id: string; emoji: string; userId: string }[];
+}
+
+interface PendingFile {
+  file: File;
+  preview: string | null;
 }
 
 interface ChatInputProps {
@@ -40,8 +49,11 @@ interface ChatInputProps {
 export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageSent }: ChatInputProps) {
   const [text, setText] = useState('');
   const [pending, setPending] = useState(false);
+  const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
+  const [dragging, setDragging] = useState(false);
   const { socket } = useSocket();
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const emitTyping = useCallback(() => {
     if (!socket) return;
@@ -53,15 +65,57 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
     }, 2000);
   }, [socket, roomId, userName]);
 
+  const attachFile = useCallback((file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large (max 10MB)');
+      return;
+    }
+    const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    setPendingFile({ file, preview });
+  }, []);
+
+  const clearFile = useCallback(() => {
+    if (pendingFile?.preview) URL.revokeObjectURL(pendingFile.preview);
+    setPendingFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [pendingFile]);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (file) attachFile(file);
+    },
+    [attachFile]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && !pendingFile) return;
 
     setPending(true);
 
     try {
-      const encrypted = await encrypt(trimmed, currentUserId);
+      let fileData: { url: string; name: string; type: string } | undefined;
+
+      if (pendingFile) {
+        const form = new FormData();
+        form.append('file', pendingFile.file);
+        form.append('roomId', roomId);
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const json = await res.json() as { url?: string; name?: string; type?: string; error?: string };
+        if (!res.ok) {
+          toast.error(json.error ?? 'Upload failed');
+          setPending(false);
+          return;
+        }
+        fileData = { url: json.url!, name: json.name!, type: json.type! };
+      }
+
+      const plaintext = trimmed || (pendingFile ? `[file: ${pendingFile.file.name}]` : '');
+      const encrypted = await encrypt(plaintext, currentUserId);
 
       const result = await sendMessage(
         roomId,
@@ -69,7 +123,8 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
         encrypted.iv,
         encrypted.signature,
         encrypted.prevHash,
-        encrypted.hash
+        encrypted.hash,
+        fileData
       );
 
       if (result.success && result.data) {
@@ -80,6 +135,9 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
           signature: encrypted.signature,
           prevHash: encrypted.prevHash,
           hash: encrypted.hash,
+          fileUrl: fileData?.url ?? null,
+          fileName: fileData?.name ?? null,
+          fileType: fileData?.type ?? null,
           createdAt: new Date(),
           sender: { id: currentUserId, name: null, image: null },
           reactions: [],
@@ -88,6 +146,7 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
         onMessageSent(message);
         socket?.emit('message', { roomId, message });
         setText('');
+        clearFile();
       } else {
         toast.error(result.error ?? 'Failed to send');
       }
@@ -106,33 +165,82 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex items-center gap-2 border-t border-neutral-800 px-4 py-3"
+    <div
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      className={`border-t border-neutral-800 ${dragging ? 'bg-emerald-500/5' : ''}`}
     >
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          if (e.target.value.trim()) emitTyping();
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder="Type a message..."
-        disabled={pending}
-        className="flex-1 rounded-xl border border-neutral-700 bg-neutral-800 px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-neutral-500 focus:border-emerald-500 disabled:opacity-50"
-      />
-      <button
-        type="submit"
-        disabled={pending || !text.trim()}
-        className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white transition-opacity disabled:opacity-50"
+      {pendingFile && (
+        <div className="flex items-center gap-2 px-4 pt-3">
+          {pendingFile.preview ? (
+            <Image
+              src={pendingFile.preview}
+              alt="Preview"
+              width={48}
+              height={48}
+              className="size-12 rounded-lg border border-neutral-700 object-cover"
+            />
+          ) : (
+            <div className="flex size-12 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800">
+              <Paperclip className="size-4 text-neutral-500" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-xs font-medium">{pendingFile.file.name}</p>
+            <p className="text-[10px] text-neutral-500">
+              {(pendingFile.file.size / 1024).toFixed(1)} KB
+            </p>
+          </div>
+          <button onClick={clearFile} className="text-neutral-500 hover:text-white">
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2 px-4 py-3"
       >
-        {pending ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <Send className="size-4" />
-        )}
-      </button>
-    </form>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) attachFile(file);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-700 text-neutral-400 transition-colors hover:border-emerald-500 hover:text-emerald-400"
+        >
+          <Paperclip className="size-4" />
+        </button>
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (e.target.value.trim()) emitTyping();
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder={pendingFile ? 'Add a caption...' : 'Type a message...'}
+          disabled={pending}
+          className="flex-1 rounded-xl border border-neutral-700 bg-neutral-800 px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-neutral-500 focus:border-emerald-500 disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={pending || (!text.trim() && !pendingFile)}
+          className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white transition-opacity disabled:opacity-50"
+        >
+          {pending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Send className="size-4" />
+          )}
+        </button>
+      </form>
+    </div>
   );
 }

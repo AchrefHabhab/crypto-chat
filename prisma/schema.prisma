@@ -103,6 +103,9 @@ model Message {
   signature  String
   prevHash   String
   hash       String
+  fileUrl    String?
+  fileName   String?
+  fileType   String?
   reactions  Reaction[]
   createdAt  DateTime   @default(now())
   room       Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
