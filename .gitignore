@@ -23,6 +23,14 @@
 # misc
 .DS_Store
 *.pem
+._*
+
+# Claude Code config (not committed)
+CLAUDE.md
+AGENTS.md
+
+# Prisma generated client
+src/generated/
 
 # debug
 npm-debug.log*
