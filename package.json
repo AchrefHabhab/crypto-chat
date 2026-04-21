@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "socket": "tsx server.ts",
     "postinstall": "prisma generate",
     "lint": "eslint . && find . -name '._*' -not -path './node_modules/*' -delete",
     "type-check": "tsc --noEmit",

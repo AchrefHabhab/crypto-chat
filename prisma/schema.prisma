@@ -70,6 +70,7 @@ model Room {
   id          String       @id @default(cuid())
   name        String
   type        String       @default("group")
+  inviteCode  String?      @unique @default(cuid())
   members     RoomMember[]
   messages    Message[]
   createdAt   DateTime     @default(now())
