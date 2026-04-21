@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 
 import { auth } from '@/lib/auth';
 
+import { LandingHero } from './_components/landing-hero';
+
 export default async function Home() {
   const session = await auth();
 
@@ -9,5 +11,5 @@ export default async function Home() {
     redirect('/chat');
   }
 
-  redirect('/login');
+  return <LandingHero />;
 }
