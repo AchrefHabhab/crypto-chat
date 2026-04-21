@@ -2,11 +2,18 @@
 
 import { useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { Send, Loader2, Paperclip, X } from 'lucide-react';
+import { Send, Loader2, Paperclip, X, Reply } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { sendMessage } from '@/lib/actions/message-actions';
 import { useSocket } from '@/providers/socket-provider';
+
+interface ReplyTo {
+  id: string;
+  ciphertext: string;
+  iv: string;
+  senderName: string;
+}
 
 interface MessageData {
   id: string;
@@ -18,6 +25,7 @@ interface MessageData {
   fileUrl: string | null;
   fileName: string | null;
   fileType: string | null;
+  replyTo: { id: string; ciphertext: string; iv: string; sender: { name: string | null } } | null;
   createdAt: Date;
   sender: {
     id: string;
@@ -44,9 +52,11 @@ interface ChatInputProps {
     hash: string;
   }>;
   onMessageSent: (message: MessageData) => void;
+  replyTo: ReplyTo | null;
+  onCancelReply: () => void;
 }
 
-export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageSent }: ChatInputProps) {
+export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageSent, replyTo, onCancelReply }: ChatInputProps) {
   const [text, setText] = useState('');
   const [pending, setPending] = useState(false);
   const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
@@ -104,6 +114,8 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
       const plaintext = capturedText || (capturedFile ? `[file: ${capturedFile.file.name}]` : '');
       const encrypted = await encrypt(plaintext, currentUserId);
 
+      const capturedReply = replyTo;
+
       const optimisticMessage: MessageData = {
         id: `temp-${Date.now()}`,
         ciphertext: encrypted.ciphertext,
@@ -114,6 +126,7 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
         fileUrl: capturedFile?.preview ?? null,
         fileName: capturedFile?.file.name ?? null,
         fileType: capturedFile?.file.type ?? null,
+        replyTo: capturedReply ? { id: capturedReply.id, ciphertext: capturedReply.ciphertext, iv: capturedReply.iv, sender: { name: capturedReply.senderName } } : null,
         createdAt: new Date(),
         sender: { id: currentUserId, name: null, image: null },
         reactions: [],
@@ -122,6 +135,7 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
       onMessageSent(optimisticMessage);
       setText('');
       clearFile();
+      onCancelReply();
       setPending(false);
 
       let fileData: { url: string; name: string; type: string } | undefined;
@@ -146,7 +160,8 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
         encrypted.signature,
         encrypted.prevHash,
         encrypted.hash,
-        fileData
+        fileData,
+        capturedReply?.id
       );
 
       if (result.success && result.data) {
@@ -160,6 +175,7 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
           fileUrl: fileData?.url ?? capturedFile?.preview ?? null,
           fileName: fileData?.name ?? null,
           fileType: fileData?.type ?? null,
+          replyTo: capturedReply ? { id: capturedReply.id, ciphertext: capturedReply.ciphertext, iv: capturedReply.iv, sender: { name: capturedReply.senderName } } : null,
           createdAt: new Date(),
           sender: { id: currentUserId, name: null, image: null },
           reactions: [],
@@ -189,6 +205,20 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
       onDrop={handleDrop}
       className={`border-t border-neutral-800 ${dragging ? 'bg-emerald-500/5' : ''}`}
     >
+      {replyTo && (
+        <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-2">
+          <Reply className="size-3.5 text-emerald-400" />
+          <div className="flex-1 min-w-0 rounded-lg border-l-2 border-emerald-500 bg-emerald-500/5 px-2.5 py-1">
+            <p className="text-[11px] font-medium text-emerald-400">{replyTo.senderName}</p>
+            <p className="truncate text-[11px] text-neutral-400">
+              {replyTo.iv !== 'plaintext' ? '[encrypted]' : replyTo.ciphertext}
+            </p>
+          </div>
+          <button onClick={onCancelReply} className="text-neutral-500 hover:text-white">
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
       {pendingFile && (
         <div className="flex items-center gap-2 px-4 pt-3">
           {pendingFile.preview ? (

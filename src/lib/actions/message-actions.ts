@@ -12,6 +12,13 @@ interface ReactionData {
   userId: string;
 }
 
+interface ReplyData {
+  id: string;
+  ciphertext: string;
+  iv: string;
+  sender: { name: string | null };
+}
+
 interface MessageWithSender {
   id: string;
   ciphertext: string;
@@ -22,6 +29,7 @@ interface MessageWithSender {
   fileUrl: string | null;
   fileName: string | null;
   fileType: string | null;
+  replyTo: ReplyData | null;
   createdAt: Date;
   sender: {
     id: string;
@@ -48,6 +56,14 @@ export async function getMessages(
       include: {
         sender: { select: { id: true, name: true, image: true } },
         reactions: { select: { id: true, emoji: true, userId: true } },
+        replyTo: {
+          select: {
+            id: true,
+            ciphertext: true,
+            iv: true,
+            sender: { select: { name: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
       take: 100,
@@ -72,7 +88,8 @@ export async function sendMessage(
   signature: string,
   prevHash: string,
   hash: string,
-  file?: FileData
+  file?: FileData,
+  replyToId?: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await getUserId();
@@ -95,6 +112,7 @@ export async function sendMessage(
         fileUrl: file?.url,
         fileName: file?.name,
         fileType: file?.type,
+        replyToId: replyToId ?? null,
       },
     });
 

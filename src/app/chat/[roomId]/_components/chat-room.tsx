@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useReducer, useCallback } from 'react';
+import { useRef, useEffect, useReducer, useCallback, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Shield, Users } from 'lucide-react';
@@ -22,6 +22,13 @@ interface Reaction {
   userId: string;
 }
 
+interface ReplyData {
+  id: string;
+  ciphertext: string;
+  iv: string;
+  senderName: string;
+}
+
 interface Message {
   id: string;
   ciphertext: string;
@@ -32,6 +39,7 @@ interface Message {
   fileUrl: string | null;
   fileName: string | null;
   fileType: string | null;
+  replyTo: { id: string; ciphertext: string; iv: string; sender: { name: string | null } } | null;
   createdAt: Date;
   sender: {
     id: string;
@@ -74,6 +82,7 @@ export function ChatRoom({
   currentUserName,
 }: ChatRoomProps) {
   const [messages, dispatch] = useReducer(messagesReducer, initialMessages);
+  const [replyTo, setReplyTo] = useState<ReplyData | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { socket, joinRoom, leaveRoom } = useSocket();
   const { ready: cryptoReady, encrypt, decrypt } = useCrypto();
@@ -98,6 +107,7 @@ export function ChatRoom({
         fileUrl: raw.fileUrl ?? null,
         fileName: raw.fileName ?? null,
         fileType: raw.fileType ?? null,
+        replyTo: raw.replyTo ?? null,
         createdAt: raw.createdAt ?? new Date(),
         sender: raw.sender ?? { id: '', name: null, image: null },
         reactions: raw.reactions ?? [],
@@ -171,6 +181,12 @@ export function ChatRoom({
                 currentUserId={currentUserId}
                 isOwn={msg.sender.id === currentUserId}
                 index={i}
+                onReply={() => setReplyTo({
+                  id: msg.id,
+                  ciphertext: msg.ciphertext,
+                  iv: msg.iv,
+                  senderName: msg.sender.name ?? 'Anonymous',
+                })}
               />
             ))}
           </div>
@@ -197,6 +213,8 @@ export function ChatRoom({
         userName={currentUserName}
         encrypt={encrypt}
         onMessageSent={handleMessageSent}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
       />
     </div>
   );

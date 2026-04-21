@@ -3,7 +3,7 @@
 import { useEffect, useReducer } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Lock, ShieldCheck, ShieldAlert, FileDown } from 'lucide-react';
+import { Lock, ShieldCheck, ShieldAlert, FileDown, Reply } from 'lucide-react';
 
 import { cn, formatTimestamp } from '@/lib/utils';
 import { decryptMessage } from '@/lib/crypto/encrypt';
@@ -26,6 +26,12 @@ interface MessageProps {
     fileUrl: string | null;
     fileName: string | null;
     fileType: string | null;
+    replyTo: {
+      id: string;
+      ciphertext: string;
+      iv: string;
+      sender: { name: string | null };
+    } | null;
     createdAt: Date;
     sender: {
       id: string;
@@ -38,6 +44,7 @@ interface MessageProps {
   currentUserId: string;
   isOwn: boolean;
   index: number;
+  onReply: () => void;
 }
 
 interface DecryptState {
@@ -58,7 +65,7 @@ function decryptReducer(_state: DecryptState, action: DecryptAction): DecryptSta
   }
 }
 
-export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: MessageProps) {
+export function ChatMessage({ message, roomId, currentUserId, isOwn, index, onReply }: MessageProps) {
   const isEncrypted = message.iv !== 'plaintext';
 
   const [state, dispatch] = useReducer(decryptReducer, {
@@ -81,7 +88,7 @@ export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: Me
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.5) }}
-      className={cn('flex gap-2', isOwn ? 'justify-end' : 'justify-start')}
+      className={cn('group flex gap-2', isOwn ? 'justify-end' : 'justify-start')}
     >
       {!isOwn && (
         <div className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-700 bg-neutral-800">
@@ -112,6 +119,23 @@ export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: Me
           <p className="mb-0.5 text-xs font-medium text-emerald-400">
             {message.sender.name ?? 'Anonymous'}
           </p>
+        )}
+        {message.replyTo && (
+          <div
+            className={cn(
+              'mb-2 rounded-lg border-l-2 px-2.5 py-1.5 text-[11px]',
+              isOwn
+                ? 'border-white/30 bg-white/10'
+                : 'border-emerald-500/50 bg-emerald-500/5'
+            )}
+          >
+            <p className="font-medium text-emerald-400">
+              {message.replyTo.sender.name ?? 'Anonymous'}
+            </p>
+            <p className={cn('truncate', isOwn ? 'text-white/70' : 'text-neutral-400')}>
+              {message.replyTo.iv !== 'plaintext' ? '[encrypted]' : message.replyTo.ciphertext}
+            </p>
+          </div>
         )}
         {message.fileUrl && message.fileType?.startsWith('image/') && (
           <div className="mb-2 overflow-hidden rounded-lg">
@@ -158,6 +182,14 @@ export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: Me
           )}
           {formatTimestamp(new Date(message.createdAt))}
         </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-center gap-1 self-center opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          onClick={onReply}
+          className="flex size-6 items-center justify-center rounded-full border border-neutral-800 text-neutral-500 transition-colors hover:border-emerald-500 hover:text-emerald-400"
+        >
+          <Reply className="size-3" />
+        </button>
       </div>
       <MessageReactions
         messageId={message.id}
