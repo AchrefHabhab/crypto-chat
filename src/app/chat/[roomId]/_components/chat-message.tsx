@@ -118,9 +118,10 @@ export function ChatMessage({ message, roomId, currentUserId, isOwn, index }: Me
             <Image
               src={message.fileUrl}
               alt={message.fileName ?? 'Image'}
-              width={300}
-              height={200}
-              className="max-h-64 w-full object-cover"
+              width={280}
+              height={180}
+              className="max-h-48 max-w-[280px] rounded-lg object-cover"
+              unoptimized
             />
           </div>
         )}

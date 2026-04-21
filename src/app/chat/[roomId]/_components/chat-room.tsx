@@ -87,7 +87,21 @@ export function ChatRoom({
   useEffect(() => {
     if (!socket) return;
 
-    const handleMessage = (message: Message) => {
+    const handleMessage = (raw: Partial<Message> & { id: string }) => {
+      const message: Message = {
+        id: raw.id,
+        ciphertext: raw.ciphertext ?? '',
+        iv: raw.iv ?? 'plaintext',
+        signature: raw.signature ?? '',
+        prevHash: raw.prevHash ?? '',
+        hash: raw.hash ?? 'unhashed',
+        fileUrl: raw.fileUrl ?? null,
+        fileName: raw.fileName ?? null,
+        fileType: raw.fileType ?? null,
+        createdAt: raw.createdAt ?? new Date(),
+        sender: raw.sender ?? { id: '', name: null, image: null },
+        reactions: raw.reactions ?? [],
+      };
       dispatch({ type: 'add', message });
     };
 

@@ -97,25 +97,47 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
 
     setPending(true);
 
+    const capturedFile = pendingFile;
+    const capturedText = trimmed;
+
     try {
+      const plaintext = capturedText || (capturedFile ? `[file: ${capturedFile.file.name}]` : '');
+      const encrypted = await encrypt(plaintext, currentUserId);
+
+      const optimisticMessage: MessageData = {
+        id: `temp-${Date.now()}`,
+        ciphertext: encrypted.ciphertext,
+        iv: encrypted.iv,
+        signature: encrypted.signature,
+        prevHash: encrypted.prevHash,
+        hash: encrypted.hash,
+        fileUrl: capturedFile?.preview ?? null,
+        fileName: capturedFile?.file.name ?? null,
+        fileType: capturedFile?.file.type ?? null,
+        createdAt: new Date(),
+        sender: { id: currentUserId, name: null, image: null },
+        reactions: [],
+      };
+
+      onMessageSent(optimisticMessage);
+      setText('');
+      clearFile();
+      setPending(false);
+
       let fileData: { url: string; name: string; type: string } | undefined;
 
-      if (pendingFile) {
+      if (capturedFile) {
         const form = new FormData();
-        form.append('file', pendingFile.file);
+        form.append('file', capturedFile.file);
         form.append('roomId', roomId);
         const res = await fetch('/api/upload', { method: 'POST', body: form });
         const json = await res.json() as { url?: string; name?: string; type?: string; error?: string };
         if (!res.ok) {
           toast.error(json.error ?? 'Upload failed');
-          setPending(false);
           return;
         }
         fileData = { url: json.url!, name: json.name!, type: json.type! };
       }
-
-      const plaintext = trimmed || (pendingFile ? `[file: ${pendingFile.file.name}]` : '');
-      const encrypted = await encrypt(plaintext, currentUserId);
 
       const result = await sendMessage(
         roomId,
@@ -128,14 +150,14 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
       );
 
       if (result.success && result.data) {
-        const message: MessageData = {
+        const finalMessage: MessageData = {
           id: result.data.id,
           ciphertext: encrypted.ciphertext,
           iv: encrypted.iv,
           signature: encrypted.signature,
           prevHash: encrypted.prevHash,
           hash: encrypted.hash,
-          fileUrl: fileData?.url ?? null,
+          fileUrl: fileData?.url ?? capturedFile?.preview ?? null,
           fileName: fileData?.name ?? null,
           fileType: fileData?.type ?? null,
           createdAt: new Date(),
@@ -143,18 +165,14 @@ export function ChatInput({ roomId, currentUserId, userName, encrypt, onMessageS
           reactions: [],
         };
 
-        onMessageSent(message);
-        socket?.emit('message', { roomId, message });
-        setText('');
-        clearFile();
+        socket?.emit('message', { roomId, message: finalMessage });
       } else {
         toast.error(result.error ?? 'Failed to send');
       }
     } catch {
-      toast.error('Encryption failed');
+      toast.error('Failed to send');
+      setPending(false);
     }
-
-    setPending(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
